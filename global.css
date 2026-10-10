@@ -58,3 +58,30 @@
   font-size: 11px;
   line-height: 15.4px; /* 1.4 */
 }
+
+/* Button (BEM: block, element, modifier) */
+@utility btn {
+  @apply h-[68px] flex-row items-center justify-center rounded-2xl;
+}
+
+@utility btn--primary {
+  @apply bg-lingua-purple;
+}
+
+@utility btn__label {
+  @apply font-poppins-medium text-[18px] leading-7 text-white;
+}
+
+/* Right-pointing chevron drawn with two borders */
+@utility btn__chevron {
+  @apply absolute right-7 h-2.5 w-2.5 rotate-45 border-t-2 border-r-2 border-white;
+}
+
+/* Onboarding speech bubble */
+@utility onboarding__bubble {
+  @apply absolute items-center justify-center rounded-2xl px-5 py-3;
+}
+
+@utility onboarding__bubble-text {
+  @apply font-poppins-medium text-[18px] leading-7;
+}
