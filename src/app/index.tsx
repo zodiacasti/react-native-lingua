@@ -1,7 +1,8 @@
-import { Image } from "expo-image";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Link } from "expo-router";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { Image } from "@/components/Image";
 import { images } from "@/constants/images";
 import { colors } from "@/theme";
 
@@ -64,6 +65,13 @@ export default function DesignSystem() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
+        <Link href="/onboarding" asChild>
+          <Pressable className="btn btn--primary active:opacity-90">
+            <Text className="btn__label">Open onboarding</Text>
+            <View className="btn__chevron" />
+          </Pressable>
+        </Link>
+
         <View className="gap-4 rounded-3xl border border-border bg-background p-5">
           <SectionTitle>BRAND</SectionTitle>
           <View className="flex-row items-center justify-center gap-2 py-2">
