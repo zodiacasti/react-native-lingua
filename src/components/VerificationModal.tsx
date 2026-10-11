@@ -1,4 +1,3 @@
-import { router } from "expo-router";
 import { useState } from "react";
 import {
   Keyboard,
@@ -18,22 +17,26 @@ const CODE_LENGTH = 6;
 type VerificationModalProps = {
   visible: boolean;
   email: string;
+  error?: string;
+  onVerify: (code: string) => Promise<void>;
   onClose: () => void;
 };
 
-export function VerificationModal({ visible, email, onClose }: VerificationModalProps) {
+export function VerificationModal({ visible, email, error, onVerify, onClose }: VerificationModalProps) {
   const [code, setCode] = useState("");
+  const [verifying, setVerifying] = useState(false);
 
-  const handleChange = (text: string) => {
+  const handleChange = async (text: string) => {
     const digits = text.replace(/\D/g, "").slice(0, CODE_LENGTH);
     setCode(digits);
 
-    // Last digit entered: go to the home route
-    if (digits.length === CODE_LENGTH) {
+    // Last digit entered: verify the code with Clerk
+    if (digits.length === CODE_LENGTH && !verifying) {
       Keyboard.dismiss();
+      setVerifying(true);
+      await onVerify(digits);
+      setVerifying(false);
       setCode("");
-      onClose();
-      router.navigate("/");
     }
   };
 
@@ -86,6 +89,8 @@ export function VerificationModal({ visible, email, onClose }: VerificationModal
                 style={styles.hiddenInput}
               />
             </View>
+
+            {error && <Text className="verify__error">{error}</Text>}
           </View>
         </View>
       </KeyboardAvoidingView>

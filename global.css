@@ -91,6 +91,14 @@
   @apply h-[76px] justify-center rounded-[22px] border border-border bg-background px-6;
 }
 
+@utility auth__field--error {
+  @apply border-error;
+}
+
+@utility auth__error {
+  @apply -mt-1.5 px-2 font-poppins text-[13px] leading-5 text-error;
+}
+
 @utility auth__label {
   @apply font-poppins text-[13px] leading-5 text-text-secondary;
 }
@@ -118,6 +126,10 @@
 
 @utility verify__card {
   @apply w-full items-center gap-2 rounded-[28px] bg-background px-6 py-8;
+}
+
+@utility verify__error {
+  @apply mt-2 text-center font-poppins text-[13px] leading-5 text-error;
 }
 
 @utility verify__box {

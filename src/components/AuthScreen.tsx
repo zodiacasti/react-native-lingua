@@ -1,3 +1,5 @@
+import { useSignIn, useSignUp } from "@clerk/expo";
+import { useSSO } from "@clerk/expo/experimental";
 import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
@@ -31,10 +33,16 @@ const copy = {
 } as const;
 
 const socialButtons = [
-  { label: "Continue with Google", icon: icons.google },
-  { label: "Continue with Facebook", icon: icons.facebook },
-  { label: "Continue with Apple", icon: icons.apple },
-];
+  { label: "Continue with Google", icon: icons.google, strategy: "oauth_google" },
+  { label: "Continue with Facebook", icon: icons.facebook, strategy: "oauth_facebook" },
+  { label: "Continue with Apple", icon: icons.apple, strategy: "oauth_apple" },
+] as const;
+
+type SocialStrategy = (typeof socialButtons)[number]["strategy"];
+
+type ErrorMessage = { longMessage?: string; message: string } | null | undefined;
+
+const messageOf = (error: ErrorMessage) => error?.longMessage ?? error?.message;
 
 export function AuthScreen({ mode }: { mode: AuthMode }) {
   const content = copy[mode];
@@ -42,6 +50,91 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [socialError, setSocialError] = useState<string>();
+  const { signIn, errors: signInErrors } = useSignIn();
+  const { signUp, errors: signUpErrors } = useSignUp();
+  const { startSSOFlow } = useSSO();
+
+  // Sign up: create the account, then Clerk emails a verification code.
+  // Sign in: Clerk emails a one-time code to the existing account.
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    setSocialError(undefined);
+
+    try {
+      const emailAddress = email.trim();
+
+      if (mode === "sign-up") {
+        const { error } = await signUp.password({ emailAddress, password });
+        if (error) return;
+
+        const { error: sendError } = await signUp.verifications.sendEmailCode();
+        if (sendError) return;
+      } else {
+        const { error } = await signIn.emailCode.sendCode({ emailAddress });
+        if (error) return;
+      }
+
+      setVerifying(true);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Once the session is active, the root layout shows the home route
+  const handleVerify = async (code: string) => {
+    if (mode === "sign-up") {
+      const { error } = await signUp.verifications.verifyEmailCode({ code });
+      if (error) return;
+
+      await signUp.finalize();
+    } else {
+      const { error } = await signIn.emailCode.verifyCode({ code });
+      if (error) return;
+
+      await signIn.finalize();
+    }
+  };
+
+  // Clerk keeps the errors up to date: field errors show under the field, the rest under the button
+  const errors = mode === "sign-up" ? signUpErrors : signInErrors;
+  const emailError = messageOf(
+    mode === "sign-up" ? signUpErrors.fields.emailAddress : signInErrors.fields.identifier,
+  );
+  const passwordError = mode === "sign-up" ? messageOf(signUpErrors.fields.password) : undefined;
+  const codeError = messageOf(errors.fields.code);
+  const formError = messageOf(errors.global?.[0]) ?? socialError;
+
+  const handleSocial = async (strategy: SocialStrategy) => {
+    if (submitting) return;
+    setSubmitting(true);
+    setSocialError(undefined);
+
+    try {
+      // When the sign in completes, Clerk activates the session and the root layout shows home
+      const { createdSessionId, signIn: ssoSignIn, signUp: ssoSignUp } = await startSSOFlow({ strategy });
+
+      // TEMPORARY diagnostics
+      if (!createdSessionId) {
+        const details = {
+          signInStatus: ssoSignIn?.status,
+          firstFactor: ssoSignIn?.firstFactorVerification?.status,
+          firstFactorError: ssoSignIn?.firstFactorVerification?.error?.longMessage,
+          signUpStatus: ssoSignUp?.status,
+          missing: ssoSignUp?.missingFields,
+          unverified: ssoSignUp?.unverifiedFields,
+        };
+        console.log("SSO result", JSON.stringify(details));
+        setSocialError(JSON.stringify(details));
+      }
+    } catch (error) {
+      setSocialError(error instanceof Error ? error.message : "Something went wrong, please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -84,7 +177,7 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
 
           {/* Form */}
           <View className="mt-2 gap-3.5">
-            <View className="auth__field">
+            <View className={`auth__field ${emailError ? "auth__field--error" : ""}`}>
               <Text className="auth__label">Email</Text>
               <TextInput
                 value={email}
@@ -99,9 +192,10 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
                 className="auth__input p-0"
               />
             </View>
+            {emailError && <Text className="auth__error">{emailError}</Text>}
 
             {mode === "sign-up" && (
-              <View className="auth__field">
+              <View className={`auth__field ${passwordError ? "auth__field--error" : ""}`}>
                 <Text className="auth__label">Password</Text>
                 <TextInput
                   value={password}
@@ -125,13 +219,17 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
                 </Pressable>
               </View>
             )}
+            {passwordError && <Text className="auth__error">{passwordError}</Text>}
 
             <Pressable
-              onPress={() => setVerifying(true)}
+              onPress={handleSubmit}
               className="auth__submit mt-0.5 active:opacity-90"
             >
               <Text className="btn__label">{content.button}</Text>
             </Pressable>
+            {formError && <Text className="auth__error text-center">{formError}</Text>}
+            {/* Mount point for Clerk bot protection, it renders nothing visible */}
+            {mode === "sign-up" && <View nativeID="clerk-captcha" />}
           </View>
 
           {/* Divider */}
@@ -144,7 +242,11 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
           {/* Social */}
           <View className="gap-2">
             {socialButtons.map((button) => (
-              <Pressable key={button.label} className="auth__social active:opacity-80">
+              <Pressable
+                key={button.label}
+                onPress={() => handleSocial(button.strategy)}
+                className="auth__social active:opacity-80"
+              >
                 <Image source={button.icon} contentFit="contain" className="h-6 w-6" />
                 <Text className="auth__social-label">{button.label}</Text>
               </Pressable>
@@ -163,7 +265,13 @@ export function AuthScreen({ mode }: { mode: AuthMode }) {
         </View>
       </ScrollView>
 
-      <VerificationModal visible={verifying} email={email} onClose={() => setVerifying(false)} />
+      <VerificationModal
+        visible={verifying}
+        email={email}
+        error={codeError}
+        onVerify={handleVerify}
+        onClose={() => setVerifying(false)}
+      />
     </SafeAreaView>
   );
 }
