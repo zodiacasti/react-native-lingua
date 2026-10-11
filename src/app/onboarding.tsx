@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -55,7 +56,10 @@ export default function Onboarding() {
 
       {/* Call to action */}
       <View className="px-7 pt-6 pb-4">
-        <Pressable className="btn btn--primary active:opacity-90">
+        <Pressable
+          onPress={() => router.push("/sign-up")}
+          className="btn btn--primary active:opacity-90"
+        >
           <Text className="btn__label">Get Started</Text>
           <View className="btn__chevron" />
         </Pressable>
