@@ -1,4 +1,4 @@
-import { Link } from "expo-router";
+import { useAuth } from "@clerk/expo";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -62,15 +62,16 @@ function SectionTitle({ children }: { children: string }) {
 }
 
 export default function DesignSystem() {
+  const { signOut } = useAuth();
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Link href="/onboarding" asChild>
-          <Pressable className="btn btn--primary active:opacity-90">
-            <Text className="btn__label">Open onboarding</Text>
-            <View className="btn__chevron" />
-          </Pressable>
-        </Link>
+        {/* Once signed out, the root layout takes the user back to onboarding */}
+        <Pressable onPress={() => signOut()} className="btn btn--primary active:opacity-90">
+          <Text className="btn__label">Sign out</Text>
+          <View className="btn__chevron" />
+        </Pressable>
 
         <View className="gap-4 rounded-3xl border border-border bg-background p-5">
           <SectionTitle>BRAND</SectionTitle>
